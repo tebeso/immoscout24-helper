@@ -1,11 +1,17 @@
 <?php
 
+namespace Src;
+
+use DOMDocument;
+use DOMXPath;
+use JsonException;
+
 /**
  * Get your favorites from the ajax response on the favorites page of immoscout24.ch and copy the content to favorites.json
  * Then start this script (call index.php) and wait. Afterwards, a CSV file is generated (places.csv).
  * Go to https://www.google.com/maps/d/ -> create new map -> import generated CSV
  */
-class Immoscout24Helper
+class Crawler
 {
     /**
      * @var string
@@ -21,6 +27,11 @@ class Immoscout24Helper
      * @var string
      */
     protected string $outputFilename = 'places.csv';
+
+    /**
+     * @var string
+     */
+    protected string $noLongerAvail = 'Property no longer available';
 
     /**
      * @var array
@@ -47,36 +58,46 @@ class Immoscout24Helper
         $csv = $this->createCsv();
 
         foreach ($this->getFavorites() as $favorite) {
+            $flat = new Flat();
+
             $url            = $this->getUrl() . $favorite->propertyId;
             $crawledContent = $this->getContentByUrl($url);
-            $info           = $this->getInformation($crawledContent, $url);
-            fputcsv($csv, $info);
+
+            $flat->setUrl($url);
+
+            if ($this->getInformation($crawledContent, $flat)) {
+                fputcsv($csv, $flat->returnArray());
+            }
         }
     }
 
 
     /**
      * @param string $crawledContent
-     * @param string $url
+     * @param Flat   $flat
      *
-     * @return string[]
+     * @return bool
      */
-    public function getInformation(string $crawledContent, string $url): array
+    public function getInformation(string $crawledContent, Flat $flat): bool
     {
         $doc = new DOMDocument();
         $doc->loadHTML($crawledContent);
+
         $xpath = new DOMXPath($doc);
 
-        $title    = $xpath->evaluate('//article/h2')->item(0)->textContent;
-        $price    = $xpath->evaluate('//article/div/h2')->item(0)->textContent;
-        $location = $xpath->evaluate('//article/p')->item(0)->textContent;
+        if ($xpath->evaluate('//h1')->item(0)->textContent === $this->getNoLongerAvail()) {
+            return false;
+        }
 
-        return [
-            $location,
-            $price,
-            $title,
-            $url,
-        ];
+        $flat->setLocation(
+            $this->normalize(
+                $doc->saveHTML($xpath->evaluate('//article/p')->item(0))
+            )
+        );
+        $flat->setPrice($xpath->evaluate('//article/div/h2')->item(0)->textContent);
+        $flat->setTitle($xpath->evaluate('//article/h2')->item(0)->textContent);
+
+        return true;
     }
 
 
@@ -95,6 +116,17 @@ class Immoscout24Helper
         fputcsv($fp, ['Address', 'Price', 'Rooms', 'Url']);
 
         return $fp;
+    }
+
+
+    /**
+     * @param string $string
+     *
+     * @return string
+     */
+    protected function normalize(string $string): string
+    {
+        return strip_tags(str_replace('<br>', ' ', $string));
     }
 
 
@@ -133,9 +165,9 @@ class Immoscout24Helper
     /**
      * @param array $favorites
      *
-     * @return Immoscout24Helper
+     * @return Crawler
      */
-    public function setFavorites(array $favorites): Immoscout24Helper
+    public function setFavorites(array $favorites): Crawler
     {
         $this->favorites = $favorites;
         return $this;
@@ -157,5 +189,11 @@ class Immoscout24Helper
         return $this->inputFilename;
     }
 
-
+    /**
+     * @return string
+     */
+    public function getNoLongerAvail(): string
+    {
+        return $this->noLongerAvail;
+    }
 }

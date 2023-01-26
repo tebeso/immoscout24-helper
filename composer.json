@@ -1,0 +1,20 @@
+{
+    "name": "tebin/immo-favorites-to-map",
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Src\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Tebin Ulrich",
+            "email": "dlhairbus320@googlemail.com"
+        }
+    ],
+    "require": {
+    },
+    "require-dev": {
+        "roave/security-advisories": "dev-latest"
+    }
+}

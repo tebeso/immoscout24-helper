@@ -1,10 +1,14 @@
 <?php
 
-include('Immoscout24Helper.php');
+use Src\Crawler;
+
+require_once(__DIR__ . '/vendor/autoload.php');
 
 try {
-    $immoscout24Helper = new Immoscout24Helper();
-    $immoscout24Helper->run();
+    $crawler = new Crawler();
+    $crawler->run();
+
+    echo 'Done';
 } catch (Throwable $e) {
     echo $e->getMessage();
 }
